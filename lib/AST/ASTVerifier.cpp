@@ -283,6 +283,8 @@ public:
     }
 
     PostWalkResult<Expr *> walkToExprPost(Expr *E) override {
+//        E->dump(Out);
+//        Out << "\n1\n";
       switch (E->getKind()) {
 #define DISPATCH(ID) return dispatchVisitPost(static_cast<ID##Expr*>(E))
 #define EXPR(ID, PARENT) \
@@ -313,6 +315,7 @@ public:
     }
 
   PostWalkResult<Stmt *> walkToStmtPost(Stmt *S) override {
+//      Out << "2\n";
       switch (S->getKind()) {
 #define DISPATCH(ID) return dispatchVisitPost(static_cast<ID##Stmt*>(S))
 #define STMT(ID, PARENT) \
@@ -338,6 +341,8 @@ public:
     }
 
   PostWalkResult<Pattern *> walkToPatternPost(Pattern *P) override {
+//      P->dump(Out);
+//      Out << "\n3\n";
       switch (P->getKind()) {
 #define DISPATCH(ID) \
         return dispatchVisitPost(static_cast<ID##Pattern*>(P))
@@ -363,6 +368,7 @@ public:
     }
 
     PostWalkAction walkToDeclPost(Decl *D) override {
+//        Out << "4\n";
       switch (D->getKind()) {
 #define DISPATCH(ID) return dispatchVisitPost(static_cast<ID##Decl*>(D)).Action
 #define DECL(ID, PARENT) \
@@ -435,6 +441,8 @@ public:
       // If we've checked types already, do some extra verification.
       if (!SF || SF->ASTStage >= SourceFile::TypeChecked) {
         verifyCheckedAlways(node);
+//          Out << "通過している? 12";
+          // ここを共通して通過している。
         if (!HadError && shouldVerifyChecked(node))
           verifyChecked(node);
       }
@@ -462,11 +470,16 @@ public:
 
     // Default cases for whether we should verify a checked subtree.
     bool shouldVerifyChecked(Expr *E) {
+//        Out << "\n開始\n";
+//        auto &e = llvm::errs();
+//        E->dump(e);
+//        Out << "\n終わり\n";
       if (!E->getType()) {
         // For @objc enums, we serialize the pre-type-checked integer
         // literal raw values, and thus when they are deserialized
         // they do not have a type on them.
         if (!isa<IntegerLiteralExpr>(E)) {
+//            E->dump(e);
           Out << "expression has no type\n";
           E->dump(Out);
           abort();
@@ -983,6 +996,8 @@ public:
     }
 
     bool shouldVerifyChecked(ThrowStmt *S) {
+        // ここ
+//        Out << "通過してる? 1";
       return shouldVerifyChecked(S->getSubExpr());
     }
 
@@ -994,6 +1009,8 @@ public:
     }
 
     bool shouldVerifyChecked(ReturnStmt *S) {
+        // ここ
+//        Out << "通過してる? 2";
       return !S->hasResult() || shouldVerifyChecked(S->getResult());
     }
 
@@ -1057,20 +1074,25 @@ public:
     }
 
     void checkConditionElement(const StmtConditionElement &elt) {
+//        Out << "通過してる? 5";
       switch (elt.getKind()) {
       case StmtConditionElement::CK_Availability:
       case StmtConditionElement::CK_HasSymbol:
         break;
       case StmtConditionElement::CK_Boolean: {
         auto *E = elt.getBoolean();
+          // ここ
+//          Out << "通過してる?";
         if (shouldVerifyChecked(E))
           checkSameType(E->getType(), Ctx.getBoolType(), "condition type");
         break;
       }
 
       case StmtConditionElement::CK_PatternBinding:
+//              Out << "通過してる? 5";
         if (shouldVerifyChecked(elt.getPattern()) &&
             shouldVerifyChecked(elt.getInitializer())) {
+            
           checkSameType(elt.getPattern()->getType(),
                     elt.getInitializer()->getType(),
                     "conditional binding type");

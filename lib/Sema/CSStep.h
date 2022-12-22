@@ -29,6 +29,7 @@
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
+#include <iostream>
 
 using namespace llvm;
 
@@ -543,6 +544,7 @@ public:
 
       {
         auto scope = std::make_unique<Scope>(CS);
+          // ここ?
         if (attempt(*choice)) {
           ActiveChoice.emplace(std::move(scope), *choice);
 
@@ -1056,6 +1058,7 @@ private:
   /// Restore best and current scores as they were before conjunction.
   void restoreCurrentScore(const Score &solutionScore) const {
     CS.CurrentScore = CurrentScore;
+      std::cout << "@@@ 10600\n";
     CS.increaseScore(SK_Fix, solutionScore.Data[SK_Fix]);
     CS.increaseScore(SK_Hole, solutionScore.Data[SK_Hole]);
   }

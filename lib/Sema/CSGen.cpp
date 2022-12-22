@@ -36,6 +36,10 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include <iostream>
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Debug.h"
 #include <utility>
 
 using namespace swift;
@@ -843,6 +847,7 @@ namespace {
     /// A map from each UnresolvedMemberExpr to the respective (implicit) base
     /// found during our walk.
     llvm::MapVector<UnresolvedMemberExpr *, Type> UnresolvedBaseTypes;
+//    llvm::raw_ostream &Out;
 
     /// A stack of pack element generic environments.
     llvm::SmallVector<GenericEnvironment *, 2> PackElementEnvironments;
@@ -2398,6 +2403,10 @@ namespace {
 
       case PatternKind::Named: {
         auto var = cast<NamedPattern>(pattern)->getDecl();
+          
+          std::cout << "PatternKind::Named\n";
+          auto &e = llvm::errs();
+          var->dump(e);
 
         Type varType;
 
@@ -2418,9 +2427,12 @@ namespace {
         if (var->getParentPatternBinding() &&
             !var->hasAttachedPropertyWrapper() &&
             optionality != ReferenceOwnershipOptionality::Required) {
+            std::cout << "2\n";
           if (auto boundExpr = locator.trySimplifyToExpr()) {
+              std::cout << "3\n";
             if (!boundExpr->isSemanticallyInOutExpr()) {
               varType = CS.getType(boundExpr)->getRValueType();
+                std::cout << "4\n";
             }
           }
         }
@@ -2430,12 +2442,14 @@ namespace {
               CS.getConstraintLocator(pattern,
                                       LocatorPathElt::NamedPatternDecl()),
               TVO_CanBindToNoEscape | TVO_CanBindToHole);
+            std::cout << "5\n";
 
           // If this is either a `weak` declaration or capture e.g.
           // `weak var ...` or `[weak self]`. Let's wrap type variable
           // into an optional.
           if (optionality == ReferenceOwnershipOptionality::Required)
             varType = TypeChecker::getOptionalType(var->getLoc(), varType);
+            std::cout << "6\n";
         }
 
         // When we are supposed to bind pattern variables, create a fresh
@@ -2463,17 +2477,21 @@ namespace {
           CS.addConstraint(ConstraintKind::OneWayEqual, oneWayVarType,
                            externalPatternType ? externalPatternType : varType,
                            locator);
+            std::cout << "7\n";
         }
 
         // Ascribe a type to the declaration so it's always available to
         // constraint system.
         if (oneWayVarType) {
           CS.setType(var, oneWayVarType);
+            std::cout << "8\n";
         } else if (externalPatternType) {
           // If there is an externally imposed type, that's what the
           // declaration is going to be bound to.
           CS.setType(var, externalPatternType);
+            std::cout << "9\n";
         } else {
+            std::cout << "10\n";
           // Otherwise, let's use the type of the pattern. The type
           // of the declaration has to be r-value, so let's add an
           // equality constraint if pattern type has any type variables
@@ -2505,7 +2523,9 @@ namespace {
           // simplification can only happen when either side is resolved.
           auto declTy = varType.transform([&](Type type) -> Type {
             if (auto *typeVar = type->getAs<TypeVariableType>()) {
+                std::cout << "11\n";
               if (typeVar->getImpl().canBindToLValue()) {
+                  std::cout << "12\n";
                 foundLValueVars = true;
 
                 // Drop l-value from the options but preserve the rest.
@@ -2526,8 +2546,10 @@ namespace {
           if (foundLValueVars) {
             CS.addConstraint(ConstraintKind::Equal, declTy, varType,
                              CS.getConstraintLocator(locator));
+              std::cout << "13\n";
           }
 
+            std::cout << declTy->getString() << " hoge \n";
           CS.setType(var, declTy);
         }
 
@@ -2687,16 +2709,22 @@ namespace {
       }
 
       case PatternKind::Bool:
+//              std::cout << "標準出力 bool\n";
         return setType(CS.getASTContext().getBoolType());
 
       case PatternKind::EnumElement: {
+          std::cout << "標準出力 EnumElement\n";
         auto enumPattern = cast<EnumElementPattern>(pattern);
 
         // Create a type variable to represent the pattern.
         Type patternType =
             CS.createTypeVariable(CS.getConstraintLocator(locator),
                                   TVO_CanBindToNoEscape);
+          
+//          auto &e = llvm::errs();
+//          patternType.dump(e);
 
+//          std::cout << patternType.getPointer(); // OK
         // Form the member constraint for a reference to a member of this
         // type.
         Type baseType;
@@ -2715,8 +2743,10 @@ namespace {
         // arguments (tuple-to-tuple conversion).
         if (dyn_cast_or_null<TuplePattern>(enumPattern->getSubPattern()))
           functionRefKind = FunctionRefKind::Compound;
+//          std::cout << "標準出力 EnumElement 1\n";
 
         if (enumPattern->getParentType() || enumPattern->getParentTypeRepr()) {
+//            std::cout << "標準出力 EnumElement 2\n";
           // Resolve the parent type.
           const auto parentType = [&] {
             auto *const patternMatchLoc = CS.getConstraintLocator(
@@ -2772,6 +2802,7 @@ namespace {
 
           baseType = externalPatternType;
         } else {
+//            std::cout << "標準出力 EnumElement 3\n";
           // Use the pattern type for member lookup.
           CS.addUnresolvedValueMemberConstraint(
               MetatypeType::get(patternType), enumPattern->getName(),
@@ -2782,9 +2813,7 @@ namespace {
         }
 
         if (auto subPattern = enumPattern->getSubPattern()) {
-          // When there is a subpattern, the member will have function type,
-          // and we're matching the type of that subpattern to the parameter
-          // types.
+//            std::cout << "標準出力 EnumElement 4\n";
           Type subPatternType = getTypeForPattern(
               subPattern,
               locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
@@ -4549,6 +4578,13 @@ bool ConstraintSystem::generateConstraints(
 
 Expr *ConstraintSystem::generateConstraints(
     Expr *expr, DeclContext *dc, bool isInputExpression) {
+    /*
+    std::cout << "はじめ\n";
+    auto &e = llvm::errs();
+    expr->dump(e);
+    std::cout << "終わり\n";
+     */
+    
   if (isInputExpression)
     InputExprs.insert(expr);
   return generateConstraintsFor(*this, expr, dc);

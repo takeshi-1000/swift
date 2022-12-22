@@ -549,6 +549,7 @@ void TypeVariableStep::setup() {
   ++CS.solverState->NumTypeVariablesBound;
 }
 
+// CsStep.hで呼ばれているかも?
 bool TypeVariableStep::attempt(const TypeVariableBinding &choice) {
   ++CS.solverState->NumTypeVariableBindings;
 
@@ -556,6 +557,7 @@ bool TypeVariableStep::attempt(const TypeVariableBinding &choice) {
     SawFirstLiteralConstraint = true;
 
   // Try to solve the system with typeVar := type
+    // 右に定義 bool TypeVariableBinding::attempt(ConstraintSystem &cs) const {
   return choice.attempt(CS);
 }
 

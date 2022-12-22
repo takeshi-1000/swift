@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <memory>
 #include <tuple>
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -348,11 +349,12 @@ void ConstraintSystem::restoreTypeVariableBindings(unsigned numBindings) {
 
 bool ConstraintSystem::simplify() {
   // While we have a constraint in the worklist, process it.
+    
   while (!ActiveConstraints.empty()) {
     // Grab the next constraint from the worklist.
     auto *constraint = &ActiveConstraints.front();
     deactivateConstraint(constraint);
-
+      
     auto isSimplifiable =
         constraint->getKind() != ConstraintKind::Disjunction &&
         constraint->getKind() != ConstraintKind::Conjunction;
@@ -372,8 +374,12 @@ bool ConstraintSystem::simplify() {
             << "(simplification result:\n";
       }
     }
+    
 
     // Simplify this constraint.
+      // ここも
+      // ここ
+      std::cout << "通過!!!\n";
     switch (simplifyConstraint(*constraint)) {
     case SolutionKind::Error:
       retireFailedConstraint(constraint);
@@ -389,6 +395,7 @@ bool ConstraintSystem::simplify() {
     case SolutionKind::Solved:
       if (solverState)
         ++solverState->NumSimplifiedConstraints;
+            // ここ本丸
       retireConstraint(constraint);
       if (isDebugMode()) {
         auto &log = llvm::errs();
@@ -1327,6 +1334,9 @@ Optional<std::vector<Solution>> ConstraintSystem::solve(
     SolutionApplicationTarget &target,
     FreeTypeVariableBinding allowFreeTypeVariables
 ) {
+    
+//    std::cout << "testHogeHoge\n";
+    
   llvm::SaveAndRestore<ConstraintSystemOptions> debugForExpr(Options);
   if (debugConstraintSolverForTarget(getASTContext(), target)) {
     Options |= ConstraintSystemFlags::DebugConstraints;
@@ -1431,6 +1441,8 @@ Optional<std::vector<Solution>> ConstraintSystem::solve(
       LLVM_FALLTHROUGH;
 
     case SolutionResult::UndiagnosedError:
+            std::cout << "SolutionResult::UndiagnosedError\n";
+            std::cout << "stage =>" << stage << "\n";
       if (shouldSuppressDiagnostics()) {
         reportSolutionsToSolutionCallback(solution);
         solution.markAsDiagnosed();
@@ -1438,6 +1450,7 @@ Optional<std::vector<Solution>> ConstraintSystem::solve(
       }
 
       if (stage == 1) {
+          std::cout << "SolutionResult::UndiagnosedError 2\n";
         diagnoseFailureFor(target);
         reportSolutionsToSolutionCallback(solution);
         solution.markAsDiagnosed();
@@ -1479,6 +1492,9 @@ ConstraintSystem::solveImpl(SolutionApplicationTarget &target,
 
   // Try to solve the constraint system using computed suggestions.
   SmallVector<Solution, 4> solutions;
+    // 参照型を入れている。なのでおそらくは、内部で値が変わる。
+    // swiftでも同じことをしようとすると、inout的なものを使わなければならなかったはず。
+        
   solve(solutions, allowFreeTypeVariables);
 
   if (isTooComplex(solutions))
@@ -1525,10 +1541,13 @@ bool ConstraintSystem::solve(SmallVectorImpl<Solution> &solutions,
   return solutions.empty() || isTooComplex(solutions);
 }
 
+// ここ
 void ConstraintSystem::solveImpl(SmallVectorImpl<Solution> &solutions) {
   assert(solverState);
 
   setPhase(ConstraintSystemPhase::Solving);
+    
+    std::cout << "solveImpl\n";
 
   SWIFT_DEFER { setPhase(ConstraintSystemPhase::Finalization); };
 
@@ -1567,7 +1586,6 @@ void ConstraintSystem::solveImpl(SmallVectorImpl<Solution> &solutions) {
       step->setup();
       step->transitionTo(StepState::Ready);
     }
-
     currentState = step->getState();
     step->transitionTo(StepState::Running);
     return currentState == StepState::Ready ? step->take(prevFailed)
@@ -1614,6 +1632,7 @@ void ConstraintSystem::solveImpl(SmallVectorImpl<Solution> &solutions) {
       // it completely runs out of choices, or type variable
       // binding.
       case SolutionKind::Unsolved:
+//              std::cout << "hoge\n";
         break;
       }
 

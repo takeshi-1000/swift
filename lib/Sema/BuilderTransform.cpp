@@ -35,6 +35,7 @@
 #include <memory>
 #include <utility>
 #include <tuple>
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -254,6 +255,13 @@ class BuilderClosureVisitor
 
     // Generate constraints for this expression.
     expr = cs->generateConstraints(expr, dc);
+//      std::cout << "はじめ1\n";
+//      auto &e = llvm::errs();
+//      auto &e = llvm::errs();
+//      expr->dump(e);
+//      std::cout << "終わり2\n";
+
+//      expr->dump(std::cout);
     if (!expr) {
       hadError = true;
       return nullptr;
@@ -2339,7 +2347,9 @@ Optional<BraceStmt *> TypeChecker::applyResultBuilderBodyTransform(
   }
 
   SmallVector<Solution, 4> solutions;
+//    std::cout << "通過\n";
   bool solvingFailed = cs.solve(solutions);
+//    std::cout << "solvingFailed =>" << solvingFailed << "\n";
 
   if (solvingFailed || solutions.size() != 1) {
     // Try to fix the system or provide a decent diagnostic.

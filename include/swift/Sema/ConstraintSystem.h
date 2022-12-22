@@ -50,6 +50,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cstddef>
 #include <functional>
+#include <iostream>
 
 using namespace swift::constraints::inference;
 
@@ -1149,6 +1150,7 @@ struct Score {
   }
 
   /// Print Score list a with brief description of any non-zero ScoreKinds.
+  /// デバックした際に最終的にここが出力された。
   void print(llvm::raw_ostream &out) const {
     bool hasNonDefault = false;
     for (unsigned int i = 0; i < NumScoreKinds; ++i) {
@@ -4320,6 +4322,7 @@ public:
 
     case SolutionKind::Error:
       if (shouldRecordFailedConstraint()) {
+          std::cout << "aここdココこ (shouldRecordFailedConstraint()) {\n";
         recordFailedConstraint(Constraint::createMemberOrOuterDisjunction(
             *this, ConstraintKind::ValueMember, baseTy, memberTy, name, useDC,
             functionRefKind, outerAlternatives, getConstraintLocator(locator)));
@@ -4351,6 +4354,7 @@ public:
 
     case SolutionKind::Error:
       if (shouldRecordFailedConstraint()) {
+          std::cout << "addUnresolvedValueMemberConstraint\n";
         recordFailedConstraint(
           Constraint::createMember(*this, ConstraintKind::UnresolvedValueMember,
                                    baseTy, memberTy, name,
@@ -4440,6 +4444,7 @@ public:
   void retireFailedConstraint(Constraint *constraint) {
     retireConstraint(constraint);
     recordFailedConstraint(constraint);
+      std::cout << "retireFailedConstraint\n";
   }
 
   /// Add a newly-generated constraint that is known not to be solvable

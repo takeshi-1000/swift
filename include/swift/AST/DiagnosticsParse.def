@@ -1318,7 +1318,7 @@ ERROR(expected_value_in_dictionary_literal,none,
 ERROR(expected_colon_in_dictionary_literal,none,
       "expected ':' in dictionary literal", ())
 ERROR(expected_rparen_expr_list,none,
-      "expected ')' in expression list", ())
+      "expected ')' in expression list 確認用", ())
 ERROR(expected_rsquare_expr_list,none,
       "expected ']' in expression list", ())
 

@@ -36,6 +36,7 @@
 #include "swift/Sema/IDETypeChecking.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/Compiler.h"
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -1235,7 +1236,9 @@ public:
       // record a fix for this, increase the score so there is a way
       // to identify that there is something going on besides just missing
       // arguments.
+        std::cout << "@@@ 10000\n";
       if (!MissingArguments.empty() || !ExtraArguments.empty()) {
+          
         CS.increaseScore(SK_Fix);
         return false;
       }
@@ -1256,6 +1259,7 @@ public:
     // let's produce a fix only for extraneous arguments for now,
     // because they'd share a locator path which (currently) means
     // one fix would overwrite another.
+      std::cout << "@@@ 10001\n";
     if (!ExtraArguments.empty()) {
       CS.increaseScore(SK_Fix);
       return false;
@@ -2059,17 +2063,38 @@ static bool isInPatternMatchingContext(ConstraintLocatorBuilder locator) {
     path.pop_back();
 
   if (!path.empty()) {
+      std::cout << "======== dump start ========\n";
+      auto &e = llvm::errs();
     // Direct pattern matching between tuple pattern and tuple type.
     if (path.back().is<LocatorPathElt::PatternMatch>()) {
+        std::cout << "======== dump start hoge 0.5 ========\n";
       return true;
     } else if (path.size() > 1) {
       // sub-pattern matching as part of the enum element matching
       // where sub-element is a tuple pattern e.g.
       // `case .foo((a: 42, _)) = question`
+        std::cout << "======== dump start hoge 1 ========\n";
       auto lastIdx = path.size() - 1;
+        
+        path[lastIdx - 1].dump(e);
+        
+        std::cout << "\n";
+        
+        path[lastIdx].dump(e);
+        
+        std::cout << "\n";
       if (path[lastIdx - 1].is<LocatorPathElt::PatternMatch>() &&
-          path[lastIdx].is<LocatorPathElt::FunctionArgument>())
-        return true;
+          path[lastIdx].is<LocatorPathElt::FunctionArgument>()) {
+          std::cout << "======== dump start hoge 2 ========\n";
+          return true;
+      }
+        
+        if (path[lastIdx - 1].is<LocatorPathElt::FunctionArgument>() &&
+            path[lastIdx].is<LocatorPathElt::TupleElement>()) {
+            std::cout << "======== dump start hoge 3 test ========\n";
+            return true;
+        }
+        
     }
   }
 
@@ -2094,27 +2119,49 @@ public:
     // case too eventually.
     if (tuple1->containsPackExpansionType() ||
         tuple2->containsPackExpansionType()) {
+        
       TuplePackMatcher matcher(tuple1, tuple2);
-      if (matcher.match())
-        return true;
+        if (matcher.match()) {
+            std::cout << "通過だよ!!!!!! TuplePackMatcher 0.5\n";
+            return true;
+        }
+        std::cout << "通過だよ!!!!!! TuplePackMatcher 1\n";
 
       pairs = matcher.pairs;
       return false;
     }
 
-    if (tuple1->getNumElements() != tuple2->getNumElements())
-      return true;
+      if (tuple1->getNumElements() != tuple2->getNumElements()) {
+          std::cout << "通過だよ!!!!!! TuplePackMatcher 1.5\n";
+          return true;
+      }
+     
 
     for (unsigned i = 0, n = tuple1->getNumElements(); i != n; ++i) {
       const auto &elt1 = tuple1->getElement(i);
       const auto &elt2 = tuple2->getElement(i);
 
       // If the names don't match, we have a conflict.
-      if (elt1.getName() != elt2.getName())
-        return true;
+        auto &e = llvm::errs();
+        if (elt1.getName() != elt2.getName()) {
+            // ここ通過
+            std::cout << "通過だよ!!!!!! TuplePackMatcher 1.6\n";
+            elt1.getType()->dump(e);
+            elt2.getType()->dump(e);
+            std::cout << "通過だよ!!!!!! TuplePackMatcher 1.7\n";
+            return true;
+        } else {
+            std::cout << "通過だよ!!!!!! TuplePackMatcher 1.8\n";
+            elt1.getType()->dump(e);
+            elt2.getType()->dump(e);
+            std::cout << "通過だよ!!!!!! TuplePackMatcher 1.9\n";
+        }
+        
 
       pairs.emplace_back(elt1.getType(), elt2.getType(), i, i);
     }
+      
+      std::cout << "通過だよ!!!!!! TuplePackMatcher 2\n";
 
     return false;
   }
@@ -2232,11 +2279,19 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
     subkind = kind;
 
     if (isInPatternMatchingContext(locator)) {
-      if (matcher.matchInPatternMatchingContext())
-        return getTypeMatchFailure(locator);
+        if (matcher.matchInPatternMatchingContext()) {
+            std::cout << "あーーーーーーーー!!!! \n";
+            return getTypeMatchFailure(locator);
+        }
+        std::cout << "いーーーーーーーー!!!! \n";
     } else {
-      if (matcher.matchBind())
-        return getTypeMatchFailure(locator);
+        std::cout << "えーーーーーーーー!!!! \n";
+        
+        if (matcher.matchBind()) {
+            // 通過
+            std::cout << "おーーーーーーーー!!!! \n";
+            return getTypeMatchFailure(locator);
+        }
     }
 
     break;
@@ -2313,6 +2368,7 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   TypeMatchOptions subflags = getDefaultDecompositionOptions(flags);
 
   for (auto pair : matcher.pairs) {
+      std::cout << "\nmatchTupleTypes\n";
     auto result = matchTypes(pair.lhs, pair.rhs, subkind, subflags,
                              locator.withPathElement(
                                     LocatorPathElt::TupleElement(pair.lhsIdx)));
@@ -2335,6 +2391,7 @@ ConstraintSystem::matchPackTypes(PackType *pack1, PackType *pack2,
     return getTypeMatchFailure(locator);
 
   for (auto pair : matcher.pairs) {
+      std::cout << "TypeMatchResult\n";
     auto result = matchTypes(pair.lhs, pair.rhs, kind, subflags,
                              locator.withPathElement(
                                  LocatorPathElt::PackElement(pair.lhsIdx)));
@@ -2910,6 +2967,9 @@ static bool fixExtraneousArguments(ConstraintSystem &cs,
                                    ArrayRef<AnyFunctionType::Param> args,
                                    int numExtraneous,
                                    ConstraintLocatorBuilder locator) {
+    
+    std::cout << "TypeKind::Tuple-4 fixExtraneousArguments \n";
+    
   SmallVector<std::pair<unsigned, AnyFunctionType::Param>, 4> extraneous;
 
   for (unsigned i = args.size() - numExtraneous, n = args.size(); i != n; ++i) {
@@ -3694,6 +3754,7 @@ ConstraintSystem::matchDeepEqualityTypes(Type type1, Type type2,
         path = path.drop_back();
 
       if (path.back().is<LocatorPathElt::AnyRequirement>()) {
+          std::cout << "@@@ 10050\n";
         if (auto *fix = fixRequirementFailure(*this, type1, type2, locator)) {
           if (recordFix(fix))
             return getTypeMatchFailure(locator);
@@ -5694,6 +5755,7 @@ bool ConstraintSystem::repairFailures(
           hasConversionOrRestriction(ConversionRestrictionKind::Superclass))
         break;
 
+        std::cout << "@@@ AllowFunctionTypeMismatch 111";
       conversionsOrFixes.push_back(AllowFunctionTypeMismatch::create(
           *this, lhs, rhs, parentLoc, /*index=*/0));
       break;
@@ -5939,6 +6001,7 @@ bool ConstraintSystem::repairFailures(
     break;
   }
 
+          // ここ
   case ConstraintLocator::TupleElement: {
     if (isExpr<ArrayExpr>(anchor) || isExpr<DictionaryExpr>(anchor)) {
       // If we could record a generic arguments mismatch instead of this fix,
@@ -5952,6 +6015,7 @@ bool ConstraintSystem::repairFailures(
       // the score to focus on suggesting using dictionary literal instead.
       path.pop_back();
       auto loc = getConstraintLocator(anchor, path);
+        std::cout << "@@@ 10003\n";
       if (hasFixFor(loc, FixKind::TreatArrayLiteralAsDictionary)) {
         increaseScore(SK_Fix);
         return true;
@@ -5997,10 +6061,19 @@ bool ConstraintSystem::repairFailures(
 
     ConstraintFix *fix;
     if (tupleLocator->isLastElement<LocatorPathElt::FunctionArgument>()) {
+        std::cout << "@@@ AllowFunctionTypeMismatch 222\n";
+        
+        auto &e = llvm::errs();
+        lhs->dump(e);
+        rhs->dump(e);
+        
+        std::cout << "@@@ こもこも \n";
+        
       fix = AllowFunctionTypeMismatch::create(*this, lhs, rhs, tupleLocator, index);
     } else {
       fix = AllowTupleTypeMismatch::create(*this, lhs, rhs, tupleLocator, index);
     }
+      // ここで追加されている
     conversionsOrFixes.push_back(fix);
     break;
   }
@@ -6256,13 +6329,42 @@ ConstraintSystem::TypeMatchResult
 ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
                              TypeMatchOptions flags,
                              ConstraintLocatorBuilder locator) {
+    
+    if (shouldAttemptFixes()) {
+        std::cout << "最初です!!(1)\n";
+    } else {
+        std::cout << "最初です!!(2)\n";
+    }
   // If we have type variables that have been bound to fixed types, look through
   // to the fixed type.
   type1 = getFixedTypeRecursive(type1, flags, kind == ConstraintKind::Equal);
   type2 = getFixedTypeRecursive(type2, flags, kind == ConstraintKind::Equal);
+    
+//    std::cout << "matchTypes\n";
+    auto &e = llvm::errs();
+    
+//    std::cout << "type1 👇\n";
+//
+//    type1->dump(e);
+//
+//    std::cout << "type2 👇\n";
+//
+//    type2->dump(e);
+    
+//    int i = (int)kind;
+//    std::cout << "kind is" << i << "\n";
+    
 
+    
   auto desugar1 = type1->getDesugaredType();
+    
+//    std::cout << "desugar1 👇\n";
+//    desugar1->dump(e);
+    
   auto desugar2 = type2->getDesugaredType();
+    
+//    std::cout << "desugar2 👇\n";
+//    desugar2->dump(e);
 
   // If both sides are dependent members without type variables, it's
   // possible that base type is incorrect e.g. `Foo.Element` where `Foo`
@@ -6273,7 +6375,18 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
         desugar2->is<DependentMemberType>())) {
     // If the types are obviously equivalent, we're done.
     if (desugar1->isEqual(desugar2) && !isa<InOutType>(desugar2)) {
+            std::cout << "getTypeMatchSuccess\n";
+        std::cout << " type1 👇\n";
+        type1->dump(e);
+        std::cout << " type2 👇\n";
+        type2->dump(e);
       return getTypeMatchSuccess();
+    } else {
+        std::cout << "not getTypeMatchSuccess\n";
+        std::cout << " type1 👇\n";
+        type1->dump(e);
+        std::cout << " type2 👇\n";
+        type2->dump(e);
     }
   }
 
@@ -6304,6 +6417,13 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
 
   auto *typeVar1 = dyn_cast<TypeVariableType>(desugar1);
   auto *typeVar2 = dyn_cast<TypeVariableType>(desugar2);
+    
+//    std::cout << "typeVar1 👇\n";
+//    typeVar1->dump(e);
+//
+//    std::cout << "typeVar2 👇\n";
+//    typeVar2->dump(e);
+    
 
   // If either (or both) types are type variables, unify the type variables.
   if (typeVar1 || typeVar2) {
@@ -6323,6 +6443,8 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     case ConstraintKind::Bind:
     case ConstraintKind::BindToPointerType:
     case ConstraintKind::Equal: {
+        std::cout << "ConstraintKind::Bind, BindToPointerType\, Equaln";
+        
       if (typeVar1 && typeVar2) {
         auto rep1 = getRepresentative(typeVar1);
         auto rep2 = getRepresentative(typeVar2);
@@ -6350,6 +6472,9 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     }
 
     case ConstraintKind::BindParam: {
+        
+        std::cout << "ConstraintKind::BindParam\n";
+        
       if (typeVar2 && !typeVar1) {
         // Simplify the left-hand type and perform the "occurs" check.
         auto rep2 = getRepresentative(typeVar2);
@@ -6399,6 +6524,9 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     case ConstraintKind::Conversion:
     case ConstraintKind::ArgumentConversion:
     case ConstraintKind::OperatorArgumentConversion: {
+        
+        std::cout << "jdoasoe\n";
+        
       if (typeVar1) {
         if (auto *locator = typeVar1->getImpl().getLocator()) {
           // TODO(diagnostics): Only binding here for function types, because
@@ -6506,6 +6634,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       return getTypeMatchFailure(locator);
 
     case TypeKind::Placeholder: {
+        std::cout << "TypeKind::Placeholder\n";
       // If it's allowed to attempt fixes, let's delegate
       // decision to `repairFailures`, since depending on
       // locator we might either ignore such a mismatch,
@@ -6575,11 +6704,24 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     }
 
     case TypeKind::Tuple: {
+        // ここを通過!!
+        std::cout << "TypeKind::Tuple\n";
+        if (shouldAttemptFixes()) {
+            std::cout << "TypeKind::Tuple-18\n";
+        } else {
+            std::cout << "TypeKind::Tuple-19\n";
+        }
       // FIXME: TuplePackMatcher doesn't correctly handle matching two
        // abstract contextual tuple types in a generic context.
        if (simplifyType(desugar1)->isEqual(simplifyType(desugar2)))
          return getTypeMatchSuccess();
 
+        if (shouldAttemptFixes()) {
+            std::cout << "TypeKind::Tuple-20\n";
+        } else {
+            std::cout << "TypeKind::Tuple-21\n";
+        }
+        
       // If the tuple has consecutive pack expansions, packs must be
       // resolved before matching.
       auto delayMatching = [](TupleType *tuple) {
@@ -6604,6 +6746,11 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
         return false;
       };
 
+        if (shouldAttemptFixes()) {
+            std::cout << "TypeKind::Tuple-22\n";
+        } else {
+            std::cout << "TypeKind::Tuple-23\n";
+        }
 
       auto *tuple1 = cast<TupleType>(desugar1);
       auto *tuple2 = cast<TupleType>(desugar2);
@@ -6611,6 +6758,11 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
         return formUnsolvedResult();
       }
 
+        if (shouldAttemptFixes()) {
+            std::cout << "TypeKind::Tuple-24\n";
+        } else {
+            std::cout << "TypeKind::Tuple-25\n";
+        }
       // Add each tuple type to the locator before matching the element types.
       // This is useful for diagnostics, because the error message can use the
       // full tuple type for several element mismatches. Use the original types
@@ -6620,9 +6772,22 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       auto result = matchTupleTypes(cast<TupleType>(desugar1),
                                     cast<TupleType>(desugar2),
                                     kind, subflags, tupleLoc);
+        
+        if (result == SolutionKind::Error) {
+            std::cout << "TypeKind::Tuple-25.5\n";
+        } else {
+            std::cout << "TypeKind::Tuple-25.7\n"; //
+        }
+        
+        // ほんとだったらここ通る
       if (result != SolutionKind::Error)
         return result;
 
+        if (shouldAttemptFixes()) {
+            std::cout << "TypeKind::Tuple-26\n";
+        } else {
+            std::cout << "TypeKind::Tuple-27\n";
+        }
       // FIXME: All cases in this switch should go down to the fix logic
       // to give repairFailures() a chance to run, but this breaks stuff
       // right now.
@@ -6903,6 +7068,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   }
 
   if (kind >= ConstraintKind::Conversion) {
+      std::cout << "ueijd\n";
     // An lvalue of type T1 can be converted to a value of type T2 so long as
     // T1 is convertible to T2 (by loading the value).  Note that we cannot get
     // a value of inout type as an lvalue though.
@@ -6920,12 +7086,14 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
         type2->getClassOrBoundGenericClass() &&
         type1->getClassOrBoundGenericClass()
           != type2->getClassOrBoundGenericClass()) {
+        std::cout << "dsee\n";
       conversionsOrFixes.push_back(ConversionRestrictionKind::Superclass);
     }
 
     // Existential-to-superclass conversion.
     if (type1->isClassExistentialType() &&
         type2->getClassOrBoundGenericClass()) {
+        std::cout << "493w9a\n";
       conversionsOrFixes.push_back(ConversionRestrictionKind::Superclass);
     }
 
@@ -6934,12 +7102,14 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     // Equivalent to a conformance relation on the instance types.
     if (type1->is<MetatypeType>() &&
         type2->is<ExistentialMetatypeType>()) {
+        std::cout << "111a\n";
       conversionsOrFixes.push_back(
         ConversionRestrictionKind::MetatypeToExistentialMetatype);
     }
 
     // Existential-metatype-to-superclass-metatype conversion.
     if (type2->is<MetatypeType>()) {
+        std::cout << "3839a\n";
       if (auto *meta1 = type1->getAs<ExistentialMetatypeType>()) {
         if (meta1->getInstanceType()->isClassExistentialType()) {
           conversionsOrFixes.push_back(
@@ -6951,6 +7121,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     // Concrete value to existential conversion.
     if (!type1->is<LValueType>() &&
         type2->isExistentialType()) {
+        std::cout << "509a\n";
 
       // Penalize conversions to Any.
       if (kind >= ConstraintKind::Conversion && type2->isAny())
@@ -6961,6 +7132,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
 
     // T -> AnyHashable.
     if (desugar2->isAnyHashable()) {
+        std::cout << "10b\n";
       // Don't allow this in operator contexts or we'll end up allowing
       // 'T() == U()' for unrelated T and U that just happen to be Hashable.
       // We can remove this special case when we implement operator hiding.
@@ -6977,6 +7149,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     // runtime classes, but only when ObjC interop is enabled.
 
     if (getASTContext().LangOpts.EnableObjCInterop) {
+        std::cout << "9a\n";
       // These conversions are between concrete types that don't need further
       // resolution, so we can consider them immediately solved.
       auto addSolvedRestrictedConstraint
@@ -7050,11 +7223,13 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   }
   
   if (kind == ConstraintKind::BindToPointerType) {
+      std::cout << "7a\n";
     if (desugar2->isEqual(getASTContext().TheEmptyTupleType))
       return getTypeMatchSuccess();
   }
 
   if (kind >= ConstraintKind::Conversion) {
+      std::cout << "5a\n";
     // It is never legal to form an autoclosure that results in these
     // implicit conversions to pointer types.
     bool isAutoClosureArgument = locator.isForAutoclosureResult();
@@ -7231,6 +7406,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   }
 
   if (kind >= ConstraintKind::OperatorArgumentConversion) {
+      std::cout << "8a\n";
     // If the RHS is an inout type, the LHS must be an @lvalue type.
     if (auto *lvt = type1->getAs<LValueType>()) {
       if (auto *iot = type2->getAs<InOutType>()) {
@@ -7247,6 +7423,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   // A value of type T, T?, or T! can be converted to type U? or U! if
   // T is convertible to U.
   if (!type1->is<LValueType>() && kind >= ConstraintKind::Subtype) {
+      std::cout << "2d\n";
     enumerateOptionalConversionRestrictions(
         type1, type2, kind, locator,
         [&](ConversionRestrictionKind restriction) {
@@ -7258,6 +7435,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   // literals and expressions representing an implicit return type of the single
   // expression functions.
   if (auto elt = locator.last()) {
+      // ここを通過!!
     if (kind >= ConstraintKind::Subtype &&
         (type1->isUninhabited() || type2->isVoid())) {
       // A conversion from closure body type to its signature result type.
@@ -7266,6 +7444,9 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
         // forbid conversion to `Void` and report an error instead to
         // honor user's intent.
         if (type1->isUninhabited() || !resultElt->hasExplicitReturn()) {
+            
+            std::cout << "2a-dddd\n";
+            
           increaseScore(SK_FunctionConversion);
           return getTypeMatchSuccess();
         }
@@ -7274,6 +7455,9 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       // Single expression function with implicit `return`.
       if (auto contextualType = elt->getAs<LocatorPathElt::ContextualType>()) {
         if (contextualType->isFor(CTP_ReturnSingleExpr)) {
+            
+            std::cout << "2a-iii\n";
+            
           increaseScore(SK_FunctionConversion);
           return getTypeMatchSuccess();
         }
@@ -7282,6 +7466,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   }
 
   if (kind == ConstraintKind::BindParam) {
+      std::cout << "3c\n";
     if (auto *iot = dyn_cast<InOutType>(desugar1)) {
       if (auto *lvt = dyn_cast<LValueType>(desugar2)) {
         return matchTypes(iot->getObjectType(), lvt->getObjectType(),
@@ -7295,10 +7480,17 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   // Attempt fixes iff it's allowed, both types are concrete and
   // we are not in the middle of attempting one already.
   if (shouldAttemptFixes() && !flags.contains(TMF_ApplyingFix)) {
+      // ここ
+      std::cout << "@@@ repairFailures(\n";
+      auto &e = llvm::errs();
+      type1->dump(e);
+      type2->dump(e);
     if (repairFailures(type1, type2, kind, conversionsOrFixes, locator)) {
       if (conversionsOrFixes.empty())
         return getTypeMatchSuccess();
     }
+  } else {
+      std::cout << "@@@ not repairFailures(\n";
   }
 
   if (conversionsOrFixes.empty())
@@ -7306,7 +7498,9 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
 
   // Where there is more than one potential conversion, create a disjunction
   // so that we'll explore all of the options.
+    // ❗️
   if (conversionsOrFixes.size() > 1) {
+      
     auto fixedLocator = getConstraintLocator(locator);
     SmallVector<Constraint *, 2> constraints;
 
@@ -7366,6 +7560,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   };
 
   // Handle restrictions.
+    // ❗️
   if (auto restriction = conversionsOrFixes[0].getRestriction()) {
     return formTypeMatchResult(simplifyRestrictedConstraint(*restriction, type1,
                                                             type2, kind,
@@ -7373,7 +7568,9 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
   }
 
   // Handle fixes.
+    // ❗️
   auto fix = *conversionsOrFixes[0].getFix();
+    std::cout << "hogehoge\n";
   return formTypeMatchResult(simplifyFixConstraint(fix, type1, type2, kind,
                                                    subflags, locator));
 }
@@ -13621,6 +13818,7 @@ void ConstraintSystem::recordCallAsFunction(UnresolvedDotExpr *root,
       getConstraintLocator(root, ConstraintLocator::ApplyArgument), arguments);
 }
 
+// ここ
 ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
     ConstraintFix *fix, Type type1, Type type2, ConstraintKind matchKind,
     TypeMatchOptions flags, ConstraintLocatorBuilder locator) {
@@ -13628,6 +13826,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
   // Try with the fix.
   TypeMatchOptions subflags =
     getDefaultDecompositionOptions(flags) | TMF_ApplyingFix;
+    
   switch (fix->getKind()) {
   case FixKind::ForceOptional: {
     SmallVector<Type, 4> unwraps1;
@@ -13684,6 +13883,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
   }
 
   case FixKind::AllowTupleTypeMismatch: {
+      std::cout << "標準出力 AllowTupleTypeMismatch 多青青々\n";
     if (fix->getAs<AllowTupleTypeMismatch>()->isElementMismatch()) {
       auto *locator = fix->getLocator();
       if (recordFix(fix, /*impact*/locator->isForContextualType() ? 5 : 1))
@@ -13738,6 +13938,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
   }
 
   case FixKind::AllowFunctionTypeMismatch: {
+      std::cout << "@@@ 標準出力 AllowFunctionTypeMismatch\n";
     if (recordFix(fix, /*impact=*/5))
       return SolutionKind::Error;
     return SolutionKind::Solved;
@@ -13974,6 +14175,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
       // are completely disjoint and adjust impact of
       // the fix accordingly.
       if (auto *fnType2 = type2->getAs<FunctionType>()) {
+          std::cout << "10100\n";
         increaseScore(SK_Fix, 10);
       } else {
         // If type produced by expression is a function type
@@ -13982,8 +14184,11 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
         // increase the score to make sure that we don't impede that.
         auto result = matchTypes(fnType1->getResult(), type2, matchKind,
                                  TMF_ApplyingFix, locator);
-        if (result == SolutionKind::Solved)
-          increaseScore(SK_Fix);
+          if (result == SolutionKind::Solved) {
+              std::cout << "@@@ 10004\n";
+            increaseScore(SK_Fix);
+          }
+            
       }
     }
 
@@ -14250,6 +14455,7 @@ ConstraintSystem::addKeyPathApplicationConstraint(Type keypath,
                                   getConstraintLocator(locator));
       if (isFavored) c->setFavored();
       recordFailedConstraint(c);
+        std::cout << "addKeyPathApplication\n";
     }
     return;
   
@@ -14280,6 +14486,8 @@ ConstraintSystem::addKeyPathConstraint(
                                   componentTypeVars);
       if (isFavored) c->setFavored();
       recordFailedConstraint(c);
+        
+        std::cout << "addKeyPathConstraint\n";
     }
     return;
   
@@ -14365,6 +14573,8 @@ void ConstraintSystem::addConstraint(ConstraintKind kind, Type first,
                                   getConstraintLocator(locator));
       if (isFavored) c->setFavored();
       recordFailedConstraint(c);
+        
+        std::cout << "addConstraint\n";
     }
     return;
 
@@ -14446,6 +14656,7 @@ void ConstraintSystem::addFixConstraint(ConstraintFix *fix, ConstraintKind kind,
                                         ConstraintLocatorBuilder locator,
                                         bool isFavored) {
   TypeMatchOptions subflags = TMF_GenerateConstraints;
+    std::cout << "fugafuga\n";
   switch (simplifyFixConstraint(fix, first, second, kind, subflags, locator)) {
   case SolutionKind::Error:
     // Add a failing constraint, if needed.
@@ -14454,6 +14665,8 @@ void ConstraintSystem::addFixConstraint(ConstraintFix *fix, ConstraintKind kind,
                                        getConstraintLocator(locator));
       if (isFavored) c->setFavored();
       recordFailedConstraint(c);
+        
+        std::cout << "addFixConstraint\n";
     }
     return;
 
@@ -14499,6 +14712,7 @@ void ConstraintSystem::addExplicitConversionConstraint(
 ConstraintSystem::SolutionKind
 ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
   auto matchKind = constraint.getKind();
+    std::cout << "simplifyConstraint\n";
   switch (matchKind) {
   case ConstraintKind::Bind:
   case ConstraintKind::Equal:
@@ -14509,9 +14723,20 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
   case ConstraintKind::ArgumentConversion:
   case ConstraintKind::OperatorArgumentConversion: {
     // Relational constraints.
+      
+      
+      if (shouldAttemptFixes()) {
+          std::cout << "SimplifyConstraint true fix\n";
+          std::cout << solverState->recordFixes;
+      } else {
+          std::cout << "SimplifyConstraint false fix\n";
+      }
+
 
     // If there is a fix associated with this constraint, apply it.
     if (auto fix = constraint.getFix()) {
+        // ここも?
+        std::cout << "通過 CSSSimplify 14521";
       return simplifyFixConstraint(fix, constraint.getFirstType(),
                                    constraint.getSecondType(), matchKind, None,
                                    constraint.getLocator());
@@ -14520,13 +14745,22 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
     // If there is a restriction on this constraint, apply it directly rather
     // than going through the general \c matchTypes() machinery.
     if (auto restriction = constraint.getRestriction()) {
+        std::cout << "通過 CSSSimplify 14672\n";
       return simplifyRestrictedConstraint(*restriction,
                                           constraint.getFirstType(),
                                           constraint.getSecondType(),
                                           matchKind, None,
                                           constraint.getLocator());
     }
+      
+      if (shouldAttemptFixes()) {
+          std::cout << "SimplifyConstraint true fix\n";
+      } else {
+          std::cout << "SimplifyConstraint false fix\n";
+      }
 
+      // ここ
+      std::cout << "通過 CSSSimplify 14681\n";
     return matchTypes(constraint.getFirstType(), constraint.getSecondType(),
                       matchKind, None, constraint.getLocator());
   }
@@ -14534,6 +14768,8 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
   case ConstraintKind::BridgingConversion:
     // If there is a fix associated with this constraint, apply it.
     if (auto fix = constraint.getFix()) {
+        // ここか
+        std::cout << "CSSimplify 14545";
       return simplifyFixConstraint(fix, constraint.getFirstType(),
                                    constraint.getSecondType(), matchKind, None,
                                    constraint.getLocator());
@@ -14739,6 +14975,8 @@ void ConstraintSystem::simplifyDisjunctionChoice(Constraint *choice) {
   switch (simplifyConstraint(*choice)) {
   case ConstraintSystem::SolutionKind::Error:
     recordFailedConstraint(choice);
+          
+          std::cout << "simplifyDisjunctionChoice\n";
     break;
 
   case ConstraintSystem::SolutionKind::Solved:

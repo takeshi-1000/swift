@@ -2175,11 +2175,12 @@ TypeVariableBinding::fixForHole(ConstraintSystem &cs) const {
   return None;
 }
 
+// ここ?
 bool TypeVariableBinding::attempt(ConstraintSystem &cs) const {
   auto type = Binding.BindingType;
   auto *srcLocator = Binding.getLocator();
   auto *dstLocator = TypeVar->getImpl().getLocator();
-
+    
   if (Binding.hasDefaultedLiteralProtocol()) {
     type = cs.replaceInferableTypesWithTypeVars(type, dstLocator);
     type = type->reconstituteSugar(/*recursive=*/false);
@@ -2214,6 +2215,9 @@ bool TypeVariableBinding::attempt(ConstraintSystem &cs) const {
   options |= ConstraintSystem::TMF_GenerateConstraints;
   options |= ConstraintSystem::TMF_BindingTypeVariable;
 
+    auto &e = llvm::errs();
+    TypeVar->dump(e);
+    
   auto result =
       cs.matchTypes(TypeVar, type, ConstraintKind::Bind, options, srcLocator);
 
@@ -2246,6 +2250,7 @@ bool TypeVariableBinding::attempt(ConstraintSystem &cs) const {
     // resolved and had to be bound to a placeholder "hole" type.
     cs.increaseScore(SK_Hole);
 
+      // ここ
     if (auto fix = fixForHole(cs)) {
       if (cs.recordFix(/*fix=*/fix->first, /*impact=*/fix->second))
         return true;

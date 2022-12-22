@@ -1617,6 +1617,7 @@ void ConstraintGraph::dumpActiveScopeChanges(llvm::raw_ostream &out,
     }
     out.indent(indent + 2);
     out << ")\n";
+
   }
   if (!addedTypeVars.empty()) {
     out.indent(indent + 2);
