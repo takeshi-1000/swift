@@ -35,6 +35,7 @@
 #include <memory>
 #include <utility>
 #include <tuple>
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -757,6 +758,7 @@ protected:
           subjectExpr, LocatorPathElt::ContextualType(CTP_CaseStmt));
       Type subjectType = cs->getType(subjectExpr);
 
+//        std::cout << "@@@ hogehoge 4 \n";
       if (cs->generateConstraints(caseStmt, dc, subjectType, locator)) {
         hadError = true;
         return nullptr;

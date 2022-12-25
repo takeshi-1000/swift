@@ -25,6 +25,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include <iostream>s
 
 using namespace llvm;
 using namespace swift;
@@ -49,6 +50,7 @@ StepResult SplitterStep::take(bool prevFailed) {
   // "split" is considered a failure if previous step failed,
   // or there is a failure recorded by constraint system, or
   // system can't be simplified.
+    std::cout << "@@@ simplifyを読んでいる 2\n";
   if (prevFailed || CS.failedConstraint || CS.simplify())
     return done(/*isSuccess=*/false);
 
@@ -268,6 +270,7 @@ StepResult DependentComponentSplitterStep::take(bool prevFailed) {
   // "split" is considered a failure if previous step failed,
   // or there is a failure recorded by constraint system, or
   // system can't be simplified.
+    std::cout << "@@@ simplifyを読んでいる 3\n";
   if (prevFailed || CS.getFailedConstraint() || CS.simplify())
     return done(/*isSuccess=*/false);
 
@@ -341,6 +344,7 @@ StepResult ComponentStep::take(bool prevFailed) {
     }
 
     // Simplify again.
+      std::cout << "@@@ simplifyを読んでいる 5 \n";
     if (CS.failedConstraint || CS.simplify())
       return done(/*isSuccess=*/false);
   }
@@ -556,6 +560,7 @@ bool TypeVariableStep::attempt(const TypeVariableBinding &choice) {
     SawFirstLiteralConstraint = true;
 
   // Try to solve the system with typeVar := type
+    std::cout << "@@ In TypeVariableStep::attempt(const TypeVariableBinding &choice) \n";
   return choice.attempt(CS);
 }
 

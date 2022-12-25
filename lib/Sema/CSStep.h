@@ -29,6 +29,7 @@
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
+#include <iostream>
 
 using namespace llvm;
 
@@ -522,6 +523,11 @@ protected:
 
 public:
   StepResult take(bool prevFailed) override {
+//      std::cout << "@@ In StepResult take(bool prevFailed) でCSをdumpしてみる。\n";
+//      CS.dump();
+//      CS.get
+//      std::cout << "\n";
+      
     // Before attempting the next choice, let's check whether the constraint
     // system is too complex already.
     if (CS.isTooComplex(Solutions))
@@ -543,6 +549,10 @@ public:
 
       {
         auto scope = std::make_unique<Scope>(CS);
+//          std::cout << "@@ In StepResult take(bool prevFailed) でCSをdumpしてみる。2\n";
+//          CS.dump();
+//          std::cout << "\n";
+//          std::cout << "@@ In StepResult take(bool prevFailed) \n";
         if (attempt(*choice)) {
           ActiveChoice.emplace(std::move(scope), *choice);
 

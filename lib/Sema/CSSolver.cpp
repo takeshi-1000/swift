@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <memory>
 #include <tuple>
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -374,6 +375,7 @@ bool ConstraintSystem::simplify() {
     }
 
     // Simplify this constraint.
+      std::cout << "@@@ simplifyConstraintを読んでいる。\n";
     switch (simplifyConstraint(*constraint)) {
     case SolutionKind::Error:
       retireFailedConstraint(constraint);
@@ -826,6 +828,8 @@ bool ConstraintSystem::Candidate::solve(
     if (CTP == CTP_CallArgument)
       constraintKind = ConstraintKind::ArgumentConversion;
 
+      auto &e = llvm::errs();
+      e << "@@ 通過 ConstraintKind::ArgumentConversion\n";
     cs.addConstraint(constraintKind, cs.getType(E), CT,
                      cs.getConstraintLocator(E), /*isFavored=*/true);
   }
@@ -2394,6 +2398,7 @@ bool DisjunctionChoice::attempt(ConstraintSystem &cs) const {
 
   // Attempt to simplify current choice might result in
   // immediate failure, which is recorded in constraint system.
+    std::cout << "@@@ simplifyを読んでいる 1\n";
   return !cs.failedConstraint && !cs.simplify();
 }
 

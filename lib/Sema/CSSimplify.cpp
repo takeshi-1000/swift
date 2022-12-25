@@ -36,6 +36,7 @@
 #include "swift/Sema/IDETypeChecking.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/Compiler.h"
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -1798,6 +1799,7 @@ static ConstraintSystem::TypeMatchResult matchCallArguments(
         if (defaultExprType->hasArchetype())
           continue;
 
+//          std::cout << "@@ cs.addConstraint(ArgumentConversion \n";
         cs.addConstraint(
             ConstraintKind::ArgumentConversion, paramTy, defaultExprType,
             locator.withPathElement(LocatorPathElt::ApplyArgToParam(
@@ -2063,13 +2065,27 @@ static bool isInPatternMatchingContext(ConstraintLocatorBuilder locator) {
     if (path.back().is<LocatorPathElt::PatternMatch>()) {
       return true;
     } else if (path.size() > 1) {
+        auto lastIdx = path.size() - 1;
+        auto &e = llvm::errs();
+        e << "\n@@ path[lastIdx - 1] => ";
+        path[lastIdx - 1].dump(e);
+        e << "\n@@ path[lastIdx] => ";
+        path[lastIdx].dump(e);
+        e << "\n@@ path.back() => ";
+        path.back().dump(e);
+        e << "\n@@ path[lastIdx - 2] => ";
+        path[lastIdx - 2].dump(e);
       // sub-pattern matching as part of the enum element matching
       // where sub-element is a tuple pattern e.g.
       // `case .foo((a: 42, _)) = question`
-      auto lastIdx = path.size() - 1;
       if (path[lastIdx - 1].is<LocatorPathElt::PatternMatch>() &&
           path[lastIdx].is<LocatorPathElt::FunctionArgument>())
         return true;
+        
+        e << "\n@@ path.size => " << path.size() << "\n";
+//      if (path[lastIdx - 1].is<LocatorPathElt::FunctionArgument>() &&
+//          path[lastIdx].is<LocatorPathElt::TupleElement>())
+//        return true;
     }
   }
 
@@ -2220,17 +2236,49 @@ public:
 
 ConstraintSystem::TypeMatchResult
 ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
-                                  ConstraintKind kind, TypeMatchOptions flags,
+                                  ConstraintKind kind, TypeMatchOptions flags, //kindがおかしい可能性あり
                                   ConstraintLocatorBuilder locator) {
   TupleMatcher matcher(tuple1, tuple2);
 
   ConstraintKind subkind;
-
+    auto &e = llvm::errs();
+    e << "\n@@ tuple1 => \n";
+    tuple1->dump(e);
+    e << "\n@@ tuple2 => \n";
+    tuple2->dump(e);
+    int ikind = (int)kind;
+    e << "\n@@ kind => " << ikind << "\n";
+    
+    if (kind == ConstraintKind::Equal) {
+        std::cout << "@@ ConstraintKind::Equal\n";
+    }
+    if (kind == ConstraintKind::Bind) {
+        std::cout << "@@ ConstraintKind::Bind\n";
+    }
+    if (kind == ConstraintKind::ArgumentConversion) {
+        std::cout << "@@ ConstraintKind::ArgumentConversion\n";
+    }
+    
+    e << "@@@ dump start \n";
+    dump();
+    e << "@@@ dump end \n";
+    
+    e << "@@@ locator dump start \n";
+    locator.dump(this);
+    e << "@@@ locator dump end \n";
+    
   switch (kind) {
   case ConstraintKind::Bind:
   case ConstraintKind::Equal: {
+      std::cout << "1\n";
     subkind = kind;
 
+      /*
+       (($T10, $T11), $T12) -> $T13 equal $T9
+       */
+      std::cout << "@@ ConstraintKind::Equal begin \n";
+      dump();
+      std::cout << "@@ ConstraintKind::Equal end \n";
     if (isInPatternMatchingContext(locator)) {
       if (matcher.matchInPatternMatchingContext())
         return getTypeMatchFailure(locator);
@@ -2247,6 +2295,7 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   // use of operator<= on enum cases.
   case ConstraintKind::Subtype:
   case ConstraintKind::BindToPointerType: {
+      std::cout << "@@ 2\n";
     subkind = kind;
 
     if (matcher.matchSubtype())
@@ -2265,6 +2314,8 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   case ConstraintKind::Conversion:
   case ConstraintKind::ArgumentConversion:
   case ConstraintKind::OperatorArgumentConversion: {
+      
+      std::cout << "@@ 通過?\n";
     subkind = ConstraintKind::Conversion;
 
     // Compute the element shuffles for conversions.
@@ -2307,12 +2358,15 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   case ConstraintKind::PackElementOf:
   case ConstraintKind::ShapeOf:
   case ConstraintKind::ExplicitGenericArguments:
+          std::cout << "@@ 3\n";
     llvm_unreachable("Bad constraint kind in matchTupleTypes()");
   }
 
   TypeMatchOptions subflags = getDefaultDecompositionOptions(flags);
 
   for (auto pair : matcher.pairs) {
+      //
+      std::cout << "@@ あああああああああ\n";
     auto result = matchTypes(pair.lhs, pair.rhs, subkind, subflags,
                              locator.withPathElement(
                                     LocatorPathElt::TupleElement(pair.lhsIdx)));
@@ -4691,6 +4745,7 @@ static bool repairOutOfOrderArgumentsInBinaryFunction(
     if (argType->hasTypeVariable() || paramType->hasTypeVariable())
       return cs.getTypeMatchFailure(loc);
 
+      std::cout << "@@@ 6666 \n";
     return cs.matchTypes(
         argType->lookThroughAllOptionalTypes(),
         paramType->lookThroughAllOptionalTypes(),
@@ -5399,6 +5454,7 @@ bool ConstraintSystem::repairFailures(
     if (lhs->is<InOutType>() && !rhs->is<InOutType>()) {
       auto objectType = rhs->lookThroughAllOptionalTypes();
       if (!objectType->getAnyPointerElementType()) {
+          std::cout << "@@@ 555 \n";
         auto result = matchTypes(lhs->getInOutObjectType(), rhs,
                                  ConstraintKind::ArgumentConversion,
                                  TypeMatchFlags::TMF_ApplyingFix, locator);
@@ -5912,6 +5968,7 @@ bool ConstraintSystem::repairFailures(
     // which is invalid in @autoclosure context e.g. from `inout`, Array
     // or String.
     if (!isPointerType(lhs) && isPointerType(rhs)) {
+        std::cout << "@@@ 444 \n";
       auto result = matchTypes(
           lhs, rhs, ConstraintKind::ArgumentConversion,
           TypeMatchFlags::TMF_ApplyingFix,
@@ -6259,7 +6316,7 @@ bool ConstraintSystem::repairFailures(
 }
 
 ConstraintSystem::TypeMatchResult
-ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
+ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind, // kindがおかしい可能せあり
                              TypeMatchOptions flags,
                              ConstraintLocatorBuilder locator) {
   // If we have type variables that have been bound to fixed types, look through
@@ -6406,6 +6463,8 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     case ConstraintKind::ArgumentConversion:
     case ConstraintKind::OperatorArgumentConversion: {
       if (typeVar1) {
+          int ikind = (int)kind;
+          std::cout << "@@@ 9999 ikind:" << ikind << "\n";
         if (auto *locator = typeVar1->getImpl().getLocator()) {
           // TODO(diagnostics): Only binding here for function types, because
           // doing so for KeyPath types leaves the constraint system in an
@@ -6581,6 +6640,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     }
 
     case TypeKind::Tuple: {
+        
       // FIXME: TuplePackMatcher doesn't correctly handle matching two
        // abstract contextual tuple types in a generic context.
        if (simplifyType(desugar1)->isEqual(simplifyType(desugar2)))
@@ -6623,6 +6683,8 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       // to preserve sugar such as typealiases.
       auto tmpTupleLoc = locator.withPathElement(LocatorPathElt::TupleType(type1));
       auto tupleLoc = tmpTupleLoc.withPathElement(LocatorPathElt::TupleType(type2));
+        
+        std::cout << "@@@ matchTupleTypesを読んでいる。";
       auto result = matchTupleTypes(cast<TupleType>(desugar1),
                                     cast<TupleType>(desugar2),
                                     kind, subflags, tupleLoc);
@@ -7066,6 +7128,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     bool isAutoClosureArgument = locator.isForAutoclosureResult();
 
     // Pointer arguments can be converted from pointer-compatible types.
+      std::cout << "@@@ 3930039 \n";
     if (kind >= ConstraintKind::ArgumentConversion) {
       Type unwrappedType2 = type2;
       bool type2IsOptional = false;
@@ -7116,6 +7179,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
           }
 
           // Operators cannot use these implicit conversions.
+                std::cout << "@@@ 48598594 \n";
           if (kind == ConstraintKind::ArgumentConversion) {
             // We can potentially convert from an UnsafeMutablePointer
             // of a different type, if we're a void pointer.
@@ -9918,6 +9982,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyMemberConstraint(
       }
     }
 
+      std::cout << "@@@ hogehoge 09090 \n";
     generateConstraints(
         candidates, memberTy, result.ViableCandidates, useDC, locator,
         result.getFavoredIndex(), /*requiresFix=*/false,
@@ -9944,6 +10009,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyMemberConstraint(
           (member.isSimpleName("min") || member.isSimpleName("max")) &&
           allFromConditionalConformances(DC, baseTy, result.ViableCandidates);
 
+        std::cout << "@@@ hogehoge 302930e0e \n";
       generateConstraints(
           candidates, memberTy, outerAlternatives, useDC, locator, None,
           /*requiresFix=*/!treatAsViable,
@@ -9958,6 +10024,8 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyMemberConstraint(
   if (!result.UnviableCandidates.empty()) {
     // Generate constraints for unavailable choices if they have a fix,
     // and disable them by default, they'd get picked up in the "salvage" mode.
+      
+      std::cout << "@@@ hogehoge 3493003 \n";
     generateConstraints(
         candidates, memberTy, result.UnviableCandidates, useDC, locator,
         /*favoredChoice=*/None, /*requiresFix=*/true,
@@ -12180,6 +12248,7 @@ ConstraintSystem::simplifyApplicableFnConstraint(
 
   // For a function, bind the output and convert the argument to the input.
   if (auto func2 = dyn_cast<FunctionType>(desugar2)) {
+      std::cout << "@@@ 222 \n";
     ConstraintKind subKind = (isOperator
                               ? ConstraintKind::OperatorArgumentConversion
                               : ConstraintKind::ArgumentConversion);
@@ -12556,6 +12625,7 @@ ConstraintSystem::simplifyDynamicCallableApplicableFnConstraint(
             func2->getParams()[0].getLabel() == ctx.Id_withKeywordArguments) &&
            "Expected 'dynamicallyCall' method argument label 'withArguments' "
            "or 'withKeywordArguments'");
+      std::cout << "@@@ 111 \n";
     if (matchTypes(func1->getParams()[0].getPlainType(),
                    func2->getParams()[0].getPlainType(),
                    ConstraintKind::ArgumentConversion,
@@ -12669,6 +12739,7 @@ ConstraintSystem::simplifyDynamicCallableApplicableFnConstraint(
     auto param = func1->getParams()[i];
     auto paramType = param.getPlainType();
 
+      std::cout << "@@@ 333 \n";
     addConstraint(
         ConstraintKind::ArgumentConversion, paramType, argumentType,
         getConstraintLocator(baseArgLoc, LocatorPathElt::ApplyArgToParam(
@@ -14158,6 +14229,7 @@ ConstraintSystem::SolutionKind
 ConstraintSystem::addArgumentConversionConstraintImpl(
     ConstraintKind kind, Type first, Type second,
     ConstraintLocatorBuilder locator) {
+    std::cout << "@@@ 847848 \n";
   assert(kind == ConstraintKind::ArgumentConversion ||
          kind == ConstraintKind::OperatorArgumentConversion);
 
@@ -14398,6 +14470,7 @@ void ConstraintSystem::addContextualConversionConstraint(
     break;
   }
   case CTP_CallArgument:
+          std::cout << "@@@ 999dodi \n";
     constraintKind = ConstraintKind::ArgumentConversion;
     break;
 
@@ -14514,6 +14587,7 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
   case ConstraintKind::OperatorArgumentConversion: {
     // Relational constraints.
 
+      std::cout << "@@@ ssss \n";
     // If there is a fix associated with this constraint, apply it.
     if (auto fix = constraint.getFix()) {
       return simplifyFixConstraint(fix, constraint.getFirstType(),
@@ -14531,8 +14605,10 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
                                           constraint.getLocator());
     }
 
-    return matchTypes(constraint.getFirstType(), constraint.getSecondType(),
-                      matchKind, None, constraint.getLocator());
+    return matchTypes(constraint.getFirstType(),
+                      constraint.getSecondType(),
+                      matchKind,
+                      None, constraint.getLocator());
   }
 
   case ConstraintKind::BridgingConversion:

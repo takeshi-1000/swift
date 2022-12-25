@@ -21,6 +21,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/raw_ostream.h"
 #include <tuple>
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -2177,6 +2178,9 @@ bool TypeVariableBinding::attempt(ConstraintSystem &cs) const {
   auto *srcLocator = Binding.getLocator();
   auto *dstLocator = TypeVar->getImpl().getLocator();
 
+//    std::cout << "@@ dump-start == \n";
+//    cs.dump();
+ 
   if (Binding.hasDefaultedLiteralProtocol()) {
     type = cs.replaceInferableTypesWithTypeVars(type, dstLocator);
     type = type->reconstituteSugar(/*recursive=*/false);
@@ -2258,7 +2262,11 @@ bool TypeVariableBinding::attempt(ConstraintSystem &cs) const {
     if (type->isPlaceholder() && reportHole())
       return false;
   }
-
+/*
+    std::cout << "@@ dump-start ==2 \n";
+    cs.dump();
+ */
+    std::cout << "simplify を読んでいる 4\n";
   if (cs.simplify())
     return false;
 

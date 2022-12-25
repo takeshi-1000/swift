@@ -38,6 +38,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <utility>
+#include <iostream>
 
 using namespace swift;
 using namespace swift::constraints;
@@ -2369,6 +2370,7 @@ namespace {
               ->getUnderlyingType();
         }
 
+//          std::cout << "@@@ hogehoge \n";
         auto *subPattern = paren->getSubPattern();
         auto underlyingType = getTypeForPattern(
             subPattern,
@@ -2381,6 +2383,7 @@ namespace {
         return setType(ParenType::get(CS.getASTContext(), underlyingType));
       }
       case PatternKind::Binding: {
+//          std::cout << "@@@ hogehoge 2 \n";
         auto *subPattern = cast<BindingPattern>(pattern)->getSubPattern();
         auto type = getTypeForPattern(subPattern, locator, externalPatternType,
                                       bindPatternVarsOneWay);
@@ -2716,6 +2719,7 @@ namespace {
         return setType(CS.getASTContext().getBoolType());
 
       case PatternKind::EnumElement: {
+          std::cout << "@@@ PatternKind::EnumElement 1 \n\n";
         auto enumPattern = cast<EnumElementPattern>(pattern);
 
         // Create a type variable to represent the pattern.
@@ -2743,6 +2747,8 @@ namespace {
           functionRefKind = FunctionRefKind::Compound;
 
         if (enumPattern->getParentType() || enumPattern->getParentTypeRepr()) {
+            std::cout << "@@@ getTypeForPattern EnumElement 1 \n\n";
+            
           // Resolve the parent type.
           const auto parentType = [&] {
             auto *const patternMatchLoc = CS.getConstraintLocator(
@@ -2798,6 +2804,9 @@ namespace {
 
           baseType = externalPatternType;
         } else {
+            // ここ通過(closure)
+            std::cout << "@@@ getTypeForPattern EnumElement \n\n";
+            
           // Use the pattern type for member lookup.
           CS.addUnresolvedValueMemberConstraint(
               MetatypeType::get(patternType), enumPattern->getName(),
@@ -2808,6 +2817,8 @@ namespace {
         }
 
         if (auto subPattern = enumPattern->getSubPattern()) {
+            // ここ通過(closure)
+            std::cout << "@@@ getTypeForPattern EnumElement 3 \n\n";
           // When there is a subpattern, the member will have function type,
           // and we're matching the type of that subpattern to the parameter
           // types.
@@ -4176,6 +4187,8 @@ static bool generateInitPatternConstraints(
   auto pattern = target.getInitializationPattern();
   auto locator = cs.getConstraintLocator(
       initializer, LocatorPathElt::ContextualType(CTP_Initialization));
+    
+    std::cout << "@@@ hogehoge 6 \n";
   Type patternType = cs.generateConstraints(
       pattern, locator, target.shouldBindPatternVarsOneWay(),
       target.getInitializationPatternBindingDecl(),
@@ -4339,6 +4352,8 @@ generateForEachStmtConstraints(
   // Collect constraints from the element pattern.
   auto elementLocator = cs.getConstraintLocator(
       sequenceExpr, ConstraintLocator::SequenceElementType);
+    
+//    std::cout << "@@@ hogehoge 9 \n";
   Type initType =
       cs.generateConstraints(pattern, elementLocator,
                              target.shouldBindPatternVarsOneWay(), nullptr, 0);
@@ -4558,6 +4573,7 @@ bool ConstraintSystem::generateConstraints(
 
       // Generate constraints to bind all of the internal declarations
       // and verify the pattern.
+//        std::cout << "@@@ hogehoge 10 \n";
       Type patternType = generateConstraints(
           pattern, locator, /*shouldBindPatternVarsOneWay*/ true,
           target.getPatternBindingOfUninitializedVar(),
@@ -4592,6 +4608,7 @@ Type ConstraintSystem::generateConstraints(
     bool bindPatternVarsOneWay, PatternBindingDecl *patternBinding,
     unsigned patternIndex) {
   ConstraintGenerator cg(*this, nullptr);
+//    std::cout << "@@@ hogehoge 3 \n";
   return cg.getTypeForPattern(pattern, locator, Type(), bindPatternVarsOneWay,
                               patternBinding, patternIndex);
 }
@@ -4675,6 +4692,7 @@ bool ConstraintSystem::generateConstraints(
     // Generate constraints for the pattern, including one-way bindings for
     // any variables that show up in this pattern, because those variables
     // can be referenced in the guard expressions and the body.
+//      std::cout << "@@@ hogehoge 898 \n";
     Type patternType = generateConstraints(
         pattern, locator, /* bindPatternVarsOneWay=*/true,
         /*patternBinding=*/nullptr, /*patternBindingIndex=*/0);

@@ -663,6 +663,9 @@ Pattern *TypeChecker::resolvePattern(Pattern *P, DeclContext *DC,
   // then the metatype would have had to be spelled with "SomeType.self".  What
   // they actually meant is to write "is SomeType", so we rewrite it to that
   // pattern for good QoI.
+    
+    DC->dumpContext();
+    
   auto &Context = DC->getASTContext();
   if (auto *EP = dyn_cast<ExprPattern>(P))
     if (auto *TE = dyn_cast<TypeExpr>(EP->getSubExpr())) {

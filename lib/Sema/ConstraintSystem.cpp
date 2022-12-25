@@ -37,6 +37,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Format.h"
+#include <iostream>
 
 using namespace swift;
 using namespace constraints;
@@ -2674,6 +2675,7 @@ void ConstraintSystem::addOverloadSet(Type boundType,
   }
 
   SmallVector<Constraint *, 4> candidates;
+    std::cout << "@@@ hogehoge 490w9r0sd \n";
   generateConstraints(candidates, boundType, choices, useDC, locator,
                       favoredIndex);
   // For an overload set (disjunction) from newly generated candidates.
@@ -3789,6 +3791,7 @@ Type Solution::simplifyTypeForCodeCompletion(Type Ty) const {
          CS.getConstraintGraph()[typeVar].getConstraints()) {
       if (argConstraint->getKind() == ConstraintKind::ArgumentConversion &&
           argConstraint->getFirstType()->getRValueType()->isEqual(typeVar)) {
+          std::cout << "@@@ kdoskodkoskd \n";
         if (auto argTV =
                 argConstraint->getSecondType()->getAs<TypeVariableType>()) {
           if (auto archetype = getTypeVarAsArchetype(argTV)) {

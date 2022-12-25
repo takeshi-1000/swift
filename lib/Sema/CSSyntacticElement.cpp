@@ -21,6 +21,7 @@
 #include "TypeCheckAvailability.h"
 #include "swift/Sema/ConstraintSystem.h"
 #include "swift/Sema/IDETypeChecking.h"
+#include <iostream>
 
 using namespace swift;
 using namespace swift::constraints;
@@ -448,6 +449,7 @@ public:
       : cs(cs), context(context), locator(locator) {}
 
   void visitPattern(Pattern *pattern, ContextualTypeInfo context) {
+      std::cout << "@@ hogehoge -dkosie\n";
     auto parentElement =
         locator->getLastElementAs<LocatorPathElt::SyntacticElement>();
 
@@ -477,8 +479,24 @@ public:
     // Resolve the pattern.
     auto *pattern = caseItem->getPattern();
     if (!caseItem->isPatternResolved()) {
+        
+        std::cout << "@@@ test 1\n";
+        
+        // 制約を作成する？
+        
+        auto &e = llvm::errs();
+        
+        std::cout << "\n @@@ 初め \n";
+        
+        pattern->dump(e);
+        
       pattern = TypeChecker::resolvePattern(pattern, context.getAsDeclContext(),
                                             /*isStmtCondition=*/false);
+        std::cout << "\n @@@ 終わり \n";
+        
+        pattern->dump(e);
+        
+        std::cout << "\n";
       if (!pattern) {
         hadError = true;
         return;
@@ -499,6 +517,7 @@ public:
 
     // Generate constraints for `where` clause (if any).
     if (guardExpr) {
+        std::cout << "@@@ test 2\n";
       guardExpr = cs.generateConstraints(guardExpr, context.getAsDeclContext());
       if (!guardExpr) {
         hadError = true;
@@ -536,6 +555,7 @@ private:
   }
 
   void visitCaseItemPattern(Pattern *pattern, ContextualTypeInfo context) {
+      std::cout << "@@@ hogehoge ds09d0 \n";
     Type patternType = cs.generateConstraints(
         pattern, locator, /*bindPatternVarsOneWay=*/false,
         /*patternBinding=*/nullptr, /*patternIndex=*/0);
@@ -915,6 +935,7 @@ private:
     if (context.isSingleExpressionClosure(cs)) {
       for (auto node : braceStmt->getElements()) {
         if (auto expr = node.dyn_cast<Expr *>()) {
+            std::cout << "@@@ hogehoge 90d90sd \n";
           auto generatedExpr = cs.generateConstraints(
             expr, context.getAsDeclContext(), /*isInputExpression=*/false);
           if (!generatedExpr) {
@@ -1002,6 +1023,7 @@ private:
       auto *expr = returnStmt->getResult();
       assert(expr && "single expression closure without expression?");
 
+        std::cout << "@@@ hogehoge 90d9s0d \n";
       expr = cs.generateConstraints(expr, context.getAsDeclContext(),
                                     /*isInputExpression=*/false);
       if (!expr) {
@@ -1220,7 +1242,11 @@ ConstraintSystem::simplifySyntacticElementConstraint(
   auto anchor = locator.getAnchor();
 
   Optional<SyntacticElementContext> context;
+    
+    std::cout << "@@@@ aaaaaa\n";
+    
   if (auto *closure = getAsExpr<ClosureExpr>(anchor)) {
+      std::cout << "@@@ getAsExpr<ClosureExpr>(anchor)) @@@ \n";
     context = SyntacticElementContext::forClosure(closure);
   } else if (auto *fn = getAsDecl<AbstractFunctionDecl>(anchor)) {
     context = SyntacticElementContext::forFunction(fn);
@@ -1249,6 +1275,7 @@ ConstraintSystem::simplifySyntacticElementConstraint(
   } else if (auto *pattern = element.dyn_cast<Pattern *>()) {
     generator.visitPattern(pattern, contextInfo);
   } else if (auto *caseItem = element.dyn_cast<CaseLabelItem *>()) {
+      // ここ
     generator.visitCaseItem(caseItem, contextInfo);
   } else {
     generator.visit(element.get<Decl *>());
